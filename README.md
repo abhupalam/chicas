@@ -4,15 +4,76 @@ A small ETL pipeline lab. It ingests raw orders, customers, and products from a
 landing area, promotes them through a medallion architecture
 (Bronze → Silver → Gold), and quarantines bad records along the way.
 
-## Quick start
+## Setup
+
+### Prerequisites
+- **Python 3.10+** installed ([python.org/downloads](https://www.python.org/downloads/))
+- **Git** installed ([git-scm.com/downloads](https://git-scm.com/downloads))
+
+Check both are available:
 
 ```bash
-pip install -r requirements.txt
+python --version
+git --version
+```
 
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/lneale-hkda/novacart-solution.git
+cd novacart-solution
+```
+
+### 2. Create and activate a virtual environment
+
+A virtual environment keeps this project's packages isolated from your system Python.
+
+**macOS / Linux:**
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+**Windows (PowerShell):**
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+Once active, your prompt will show `(.venv)`.
+
+### 3. Install the requirements
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 4. Run the project
+
+```bash
 # Generate sample data, run the pipeline, and run the tests in one shot
 python scripts/run_everything.py
+```
 
-# Wipe all generated output when you're done
+Or run the pipeline directly:
+
+```bash
+# Single date
+python -m src.pipeline --date 2025-11-07
+
+# A date plus the N days before it (e.g. Nov 7–10)
+python -m src.pipeline --date 2025-11-10 --backfill 3
+```
+
+### 5. Clean up generated output (optional)
+
+When you're done, wipe all pipeline-generated output (bronze, silver, gold,
+quarantine, state, logs). Source data in `data/landing/` is left intact.
+
+```bash
 python scripts/cleanup.py
 ```
 

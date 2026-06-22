@@ -77,6 +77,74 @@ quarantine, state, logs). Source data in `data/landing/` is left intact.
 python scripts/cleanup.py
 ```
 
+## Working as a team
+
+The Setup steps above give each person a personal copy. If you're doing this as a
+team, set up one shared repository everyone can push to. Do this **once per team**,
+then have teammates clone it. Pick **one** of the two options below.
+
+### Option A — Fork on GitHub (keeps a link to the original)
+
+Best when you want to be able to pull in later updates from the original repo.
+
+1. Open <https://github.com/lneale-hkda/novacart-solution> and click **Fork**
+   (top-right). Set the owner to your team account or organization.
+2. Clone your fork (replace `YOUR-TEAM` with your account or org name):
+
+   ```bash
+   git clone https://github.com/YOUR-TEAM/novacart-solution.git
+   cd novacart-solution
+   ```
+
+3. (Optional) Add a link to the original so you can pull updates later:
+
+   ```bash
+   git remote add upstream https://github.com/lneale-hkda/novacart-solution.git
+   git fetch upstream
+   ```
+
+### Option B — Create a brand-new team repo (independent copy)
+
+Best when you want your own standalone repo with no fork relationship.
+
+1. On GitHub, create a new **empty** repository under your team account (no README,
+   no `.gitignore`) — for example `novacart-team`.
+2. From the project folder you cloned during Setup, point it at your new repo and
+   push (replace `YOUR-TEAM`):
+
+   ```bash
+   git remote remove origin
+   git remote add origin https://github.com/YOUR-TEAM/novacart-team.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+### Teammates — clone the shared repo
+
+Everyone else clones the team repo (the fork URL from Option A, or the new repo URL
+from Option B), then continues from the virtual-environment step in Setup:
+
+```bash
+git clone https://github.com/YOUR-TEAM/novacart-team.git
+cd novacart-team
+```
+
+### Day-to-day team workflow
+
+Pull the latest before you start, work on a branch, then push and open a pull
+request so a teammate can review:
+
+```bash
+git pull
+git checkout -b your-name/feature
+git add -A && git commit -m "Describe your change"
+git push -u origin your-name/feature
+```
+
+> **Tip:** run `python scripts/cleanup.py` before committing so generated output
+> (`data/bronze`, `data/silver`, `data/gold`, `data/quarantine`, `state`, `logs`)
+> and your `.venv/` don't get pushed. Consider adding those paths to `.gitignore`.
+
 ## Scripts
 
 All scripts live in `scripts/` and are run from the repo root.

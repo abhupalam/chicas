@@ -1,8 +1,64 @@
 """Pydantic schema contracts for Bronze → Silver validation."""
 from __future__ import annotations
+import re
 from datetime import date
 from typing import Optional
 from pydantic import BaseModel, field_validator, ConfigDict
+
+_EMAIL_RE = re.compile(
+    r"""
+    ^
+    [a-zA-Z0-9._%+\-]+   # ── local part
+    @                     # ── exactly one @
+    [a-zA-Z0-9.\-]+       # ── domain (may include sub-domains)
+    \.                    # ── dot before TLD 
+    [a-zA-Z]{2,}          # ── TLD (2+ alpha chars)
+    $
+    """,
+    re.VERBOSE,
+)
+
+def _validate_email_format(value: str) -> str:
+    """
+    Validate *value* as an e-mail address.
+
+    Raises ValueError with a message that names specific structural 
+    problem so  error logs are actionable.
+    """
+    # ── Guard 1: multiple "@" symbols
+    at_count = value.count("@")
+    if at_count == 0:
+        raise ValueError(f"invalid email – missing '@': {value!r}")
+    if at_count > 1:
+        raise ValueError(
+            f"invalid email – {at_count} '@' symbols found (expected 1): {value!r}"
+        )
+
+    local, domain = value.split("@")
+
+    # ── Guard 2: empty local part
+    if not local:
+        raise ValueError(
+            f"invalid email – local part (before '@') is empty: {value!r}"
+        )
+    
+    # ── Guard 3: empty or TLD-less domain (e.g. user@ or user@domain)
+    if not domain:
+        raise ValueError(
+            f"invalid email – domain (after '@') is empty: {value!r}"
+        )
+    if "." not in domain:
+        raise ValueError(
+            f"invalid email – domain has no TLD (expected 'domain.tld'): {value!r}"
+        )
+
+    # ── Guard 4: full structural check via compiled regex
+    if not _EMAIL_RE.match(value):
+        raise ValueError(
+            f"invalid email – failed structural format check: {value!r}"
+        )
+
+    return value.lower()
 
 
 class OrderRow(BaseModel):
@@ -51,10 +107,8 @@ class CustomerRow(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def email_has_at(cls, v: str) -> str:
-        if "@" not in v:
-            raise ValueError(f"invalid email: {v}")
-        return v.lower()
+    def email_format(cls, v: str) -> str:
+        return _validate_email_format(v)
 
 
 class ProductRow(BaseModel):

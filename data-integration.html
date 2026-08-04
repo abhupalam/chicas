@@ -1,0 +1,357 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>NovaCart — Pain Points, Solutions &amp; Engineering Breakdown</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    color: #1f2328; background: #fff;
+    padding: 36px 16px 64px;
+  }
+  .page { max-width: 780px; margin: 0 auto; }
+
+  /* ── Typography ── */
+  h1  { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+  h2  { font-size: 18px; font-weight: 700; margin: 0 0 14px; }
+  h3  { font-size: 13px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; margin: 0 0 6px; }
+  p   { margin-bottom: 8px; font-size: 13.5px; color: #374151; }
+  ul  { padding-left: 18px; margin-bottom: 8px; }
+  li  { font-size: 13px; color: #374151; margin-bottom: 3px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 28px; }
+
+  /* ── TOC pill row ── */
+  .toc { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 36px; }
+  .toc a {
+    font-size: 12px; font-weight: 600; padding: 4px 11px;
+    border-radius: 20px; border: 1px solid #e5e7eb;
+    background: #f7f8fa; color: #1f2328; text-decoration: none;
+  }
+  .toc a:hover { background: #e5e7eb; }
+
+  /* ── Pain-point card ── */
+  .pain-card {
+    border: 1px solid #e5e7eb; border-radius: 10px;
+    margin-bottom: 40px; overflow: hidden;
+  }
+  .pain-header {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 18px 22px 16px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .pain-icon {
+    width: 38px; height: 38px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0; margin-top: 2px;
+  }
+  .pain-header-text h2 { margin-bottom: 4px; }
+  .pain-header-text .pain-quote {
+    font-size: 12.5px; color: #57606a; font-style: italic;
+    border-left: 3px solid #e5e7eb; padding-left: 10px; margin-top: 6px;
+  }
+
+  /* ── Sections inside a card ── */
+  .card-section {
+    padding: 16px 22px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .card-section:last-child { border-bottom: none; }
+  .section-label {
+    font-size: 10px; font-weight: 800; letter-spacing: .09em;
+    text-transform: uppercase; margin-bottom: 8px;
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+  }
+  .lbl-client  { background: #dbeafe; color: #1e3a8a; }
+  .lbl-how     { background: #d1fae5; color: #064e3b; }
+  .lbl-code    { background: #fef3c7; color: #78350f; }
+  .lbl-eng     { background: #ede9fe; color: #4c1d95; }
+  .lbl-better  { background: #fee2e2; color: #7f1d1d; }
+
+  /* ── Value row ── */
+  .value-row {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;
+  }
+  .value-chip {
+    font-size: 11.5px; font-weight: 600;
+    padding: 4px 12px; border-radius: 20px;
+    background: #f0fdf4; border: 1px solid #86efac; color: #14532d;
+  }
+  .value-chip.blue { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
+  .value-chip.purple { background: #f5f3ff; border-color: #c4b5fd; color: #4c1d95; }
+
+  /* ── Code block ── */
+  .code-block {
+    background: #1e1e2e; color: #cdd6f4;
+    border-radius: 7px; padding: 14px 16px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 11.5px; line-height: 1.75;
+    overflow-x: auto; white-space: pre;
+    margin: 10px 0;
+  }
+  .code-block .kw  { color: #cba6f7; }
+  .code-block .fn  { color: #89b4fa; }
+  .code-block .str { color: #a6e3a1; }
+  .code-block .cm  { color: #6c7086; font-style: italic; }
+  .code-block .num { color: #fab387; }
+  .code-block .err { color: #f38ba8; }
+  .code-block .hl  { background: #313244; border-radius: 3px; padding: 1px 3px; }
+
+  /* ── Inline code ── */
+  code {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 11.5px; background: #f3f4f6;
+    padding: 1px 5px; border-radius: 3px; color: #1f2328;
+  }
+
+  /* ── Improvement pills ── */
+  .improve-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .improve-item {
+    background: #f7f8fa; border: 1px solid #e5e7eb;
+    border-radius: 6px; padding: 8px 12px;
+  }
+  .improve-item .imp-tier {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; margin-bottom: 3px;
+  }
+  .imp-now    { color: #b45309; }
+  .imp-next   { color: #1d4ed8; }
+  .imp-future { color: #6d28d9; }
+  .improve-item p { font-size: 12px; color: #374151; margin: 0; }
+
+  /* ── Connector arrows ── */
+  .flow-inline {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    margin: 8px 0; font-size: 12px;
+  }
+  .flow-box {
+    background: #f7f8fa; border: 1px solid #e5e7eb;
+    border-radius: 5px; padding: 3px 10px;
+    font-family: 'Menlo','Consolas',monospace; font-size: 11px;
+  }
+  .flow-arrow { color: #9ca3af; font-size: 14px; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 2px solid #e5e7eb; margin: 36px 0; }
+
+  /* ── Summary table ── */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th { background: #f7f8fa; border: 1px solid #e5e7eb; padding: 8px 11px;
+       text-align: left; font-weight: 700; }
+  td { border: 1px solid #e5e7eb; padding: 7px 11px; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+
+  footer {
+    margin-top: 56px; padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center; font-size: 11px; color: #9ca3af;
+  }
+
+  /* colour themes per card */
+  .theme-red    .pain-icon { background: #fee2e2; }
+  .theme-amber  .pain-icon { background: #fef3c7; }
+  .theme-green  .pain-icon { background: #dcfce7; }
+  .theme-blue   .pain-icon { background: #dbeafe; }
+  .theme-purple .pain-icon { background: #ede9fe; }
+  .theme-teal   .pain-icon { background: #ccfbf1; }
+  .theme-rose   .pain-icon { background: #ffe4e6; }
+  .theme-red    .pain-header    { background: #fff5f5; }
+  .theme-amber  .pain-header    { background: #fffdf0; }
+  .theme-green  .pain-header    { background: #f0fdf4; }
+  .theme-blue   .pain-header    { background: #eff6ff; }
+  .theme-purple .pain-header    { background: #f5f3ff; }
+  .theme-teal   .pain-header    { background: #f0fdfa; }
+  .theme-rose   .pain-header    { background: #fff1f2; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>NovaCart — Pain Points &amp; Solutions</h1>
+<p class="subtitle">Client value story · Exact code mechanisms · Engineering deep dives · Improvement roadmap — all grounded in the actual pipeline source</p>
+
+<div class="toc">
+  <a href="#p1">1 · Data Inconsistency</a>
+  <a href="#p2">2 · Silent Data Loss</a>
+  <a href="#p3">3 · Historical Context</a>
+  <a href="#p4">4 · Observability</a>
+  <a href="#p5">5 · Data Integration</a>
+  <a href="#p6">6 · No Validation</a>
+  <a href="#p7">7 · Duplicate Re-runs</a>
+  <a href="#summary">Summary Table</a>
+</div>
+
+<div class="pain-card theme-purple" id="p5">
+  <div class="pain-header">
+    <div class="pain-icon">🔌</div>
+    <div class="pain-header-text">
+      <h2>5 · Data Integration Challenges</h2>
+      <div class="pain-quote">
+        "Three separate source systems in three different formats — CSV for orders, JSON for customers, SQL database for products. These systems don't communicate with each other."
+      </div>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <div class="section-label lbl-client">Client Value</div>
+    <p>Heterogeneous source systems are the norm in any real business. The pipeline doesn't force source systems to change — it meets each source on its own terms and normalises everything into a single queryable model. Once in Gold, a BI analyst never needs to think about whether a fact came from a CSV or a database.</p>
+    <div class="value-row">
+      <span class="value-chip">No changes required to existing source systems</span>
+      <span class="value-chip blue">Single unified Gold layer regardless of source format</span>
+      <span class="value-chip purple">Each source system isolated — one failing doesn't cascade</span>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <div class="section-label lbl-how">How the Pipeline Addresses It</div>
+    <p>Each source type has its own dedicated ingest module with format-specific logic, each producing the same Bronze Parquet output format:</p>
+    <ul>
+      <li><code>ingest/orders.py</code> — reads CSV via <code>pd.read_csv()</code>, adds metadata, writes partitioned Parquet</li>
+      <li><code>ingest/customers.py</code> — reads nested JSON, flattens <code>address.city / address.country</code> inline, writes Parquet</li>
+      <li><code>ingest/products.py</code> — connects to SQLite, runs watermark-filtered SQL query, writes Parquet</li>
+    </ul>
+    <p>After Bronze, all three sources are in the same format and processed by the same Silver and Gold logic. The integration complexity is fully contained within the three ingest modules.</p>
+  </div>
+
+  <div class="card-section">
+    <div class="section-label lbl-code">Exact Code</div>
+    <p><strong><code>src/ingest/customers.py</code> — JSON flattening (lines 33–38)</strong></p>
+    <div class="code-block">rows = []
+<span class="kw">for</span> rec <span class="kw">in</span> raw:
+    address = rec.<span class="fn">pop</span>(<span class="str">"address"</span>, {})   <span class="cm"># nested object removed</span>
+    rec[<span class="str">"city"</span>]    = address.<span class="fn">get</span>(<span class="str">"city"</span>, <span class="str">""</span>)    <span class="cm"># promoted to top-level</span>
+    rec[<span class="str">"country"</span>] = address.<span class="fn">get</span>(<span class="str">"country"</span>, <span class="str">""</span>)
+    rows.<span class="fn">append</span>(rec)</div>
+    <p><strong><code>src/ingest/products.py</code> — SQLite incremental query (lines 37–45)</strong></p>
+    <div class="code-block">conn = sqlite3.<span class="fn">connect</span>(db_path)
+<span class="kw">try</span>:
+    df = pd.<span class="fn">read_sql_query</span>(
+        <span class="str">"SELECT * FROM products WHERE updated_at &gt; ? ORDER BY updated_at"</span>,
+        conn,
+        params=(watermark,),   <span class="cm"># parameterised — no SQL injection risk</span>
+    )
+<span class="kw">finally</span>:
+    conn.<span class="fn">close</span>()   <span class="cm"># always closed, even on exception</span></div>
+    <div class="flow-inline">
+      <span class="flow-box">CSV (orders)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box">ingest/orders.py</span>
+      <span class="flow-arrow">↘</span>
+      <span class="flow-box" style="background:#dbeafe">Bronze Parquet</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box">Silver → Gold</span>
+    </div>
+    <div class="flow-inline">
+      <span class="flow-box">Nested JSON (customers)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box">ingest/customers.py</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box" style="background:#dbeafe">Bronze Parquet</span>
+    </div>
+    <div class="flow-inline">
+      <span class="flow-box">SQLite (products)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box">ingest/products.py</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box" style="background:#dbeafe">Bronze Parquet</span>
+    </div>
+  </div>
+
+  <div class="card-section">
+    <div class="section-label lbl-eng">Engineering Deep Dive</div>
+    <p><strong>Why flatten JSON at Bronze, not at Silver?</strong> Bronze should be a faithful representation of the source for replay purposes, but nested structures in Parquet require schema-on-read handling that complicates all downstream stages. Flattening at ingest normalises the structure once and makes Silver/Gold logic identical across all sources.</p>
+    <p><strong>Why SQLite with a watermark vs full extract?</strong> Full extract of a product database on every run is wasteful for large catalogs and also misses the meaning of incremental updates. The watermark pattern only fetches genuinely new/modified rows, matching the CDC (Change Data Capture) semantics of the source — products table records when each product was last modified via <code>updated_at</code>.</p>
+    <p><strong>Stage isolation in <code>pipeline.py</code>:</strong> each ingest is a separate <code>stage()</code> call. If the SQLite products DB is unavailable, only <code>ingest_products</code> fails. Orders and customers still ingest successfully. This is not the case in a monolithic script — one failure would kill everything.</p>
+  </div>
+
+  <div class="card-section">
+    <div class="section-label lbl-better">Suggested Improvements</div>
+    <div class="improve-grid">
+      <div class="improve-item">
+        <div class="imp-tier imp-now">Quick Win</div>
+        <p>Add a <strong>source connectivity check</strong> at pipeline startup before any stage runs. If <code>products.db</code> is unreachable, fail fast with a clear error rather than discovering it mid-run after orders and customers have already written Bronze.</p>
+      </div>
+      <div class="improve-item">
+        <div class="imp-tier imp-now">Quick Win</div>
+        <p>Move JSON flattening logic to a config-driven field map (e.g. <code>"address.city" → "city"</code> in <code>pipeline.yaml</code>). Currently flattening is hardcoded in <code>customers.py</code> — adding a new nested field requires a code change.</p>
+      </div>
+      <div class="improve-item">
+        <div class="imp-tier imp-next">Next Step</div>
+        <p><strong>Add retry logic</strong> to ingest stages for transient failures (network timeouts, locked SQLite file). Currently any exception halts the stage with no retry. Exponential backoff with 3 attempts would handle transient issues automatically.</p>
+      </div>
+      <div class="improve-item">
+        <div class="imp-tier imp-future">Future</div>
+        <p><strong>CDC via Debezium</strong>: replace the SQLite watermark pattern with a proper change-data-capture connector that streams product changes into Bronze in near-real-time, eliminating the batch polling interval entirely.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<hr />
+<h2 id="summary" style="margin-bottom:16px">Summary: Pain Point → Solution → Code → Value</h2>
+<table>
+  <tr>
+    <th>#</th>
+    <th>Pain Point</th>
+    <th>Key Mechanism</th>
+    <th>Primary Files</th>
+    <th>Business Value</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>Data inconsistency &amp; duplicates</td>
+    <td><code>drop_duplicates(keep="last")</code> on primary key in Silver</td>
+    <td><code>silver.py</code></td>
+    <td>Reports always agree; one source of truth</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>Silent data loss / $400K schema incident</td>
+    <td>Subtractive schema drift → <code>SchemaError</code> halt; bad rows → quarantine with reason</td>
+    <td><code>schema_check.py</code> · <code>silver.py</code></td>
+    <td>Revenue discrepancies caught before reports issue</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>Customer history overwritten</td>
+    <td>SCD Type 2 with SHA-256 hash change detection in <code>dim_customer</code></td>
+    <td><code>gold.py</code></td>
+    <td>Geographic trend analysis re-enabled; full history queryable</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>No observability at 3 a.m.</td>
+    <td>Structured JSON <code>log_event()</code>; per-stage timing; <code>run_history.jsonl</code></td>
+    <td><code>logging_setup.py</code> · <code>pipeline.py</code> · <code>state.py</code></td>
+    <td>Mean time to diagnosis in minutes not hours</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>Three incompatible source formats</td>
+    <td>Format-specific ingest modules all producing Bronze Parquet</td>
+    <td><code>ingest/orders.py</code> · <code>customers.py</code> · <code>products.py</code></td>
+    <td>Unified Gold layer; no source system changes required</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>No validation — bad emails, negative amounts</td>
+    <td>Pydantic v2 models with <code>@field_validator</code> rules per entity</td>
+    <td><code>schemas.py</code> · <code>silver.py</code></td>
+    <td>Only valid, typed data reaches analytics</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td>Duplicates on re-run</td>
+    <td>Partition-replace writes; watermark advances only after successful write</td>
+    <td><code>gold.py</code> · <code>ingest/products.py</code> · <code>state.py</code></td>
+    <td>Safe re-runs; no manual cleanup; safe backfill</td>
+  </tr>
+</table>
+
+<footer>Made with IBM Bob</footer>
+</div>
+</body>
+</html>

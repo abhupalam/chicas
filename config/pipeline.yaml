@@ -13,6 +13,13 @@ paths:
   logs:   logs
   state:  state
 
+customers:
+  flatten:
+    - nested: address.city
+      target: city
+    - nested: address.country
+      target: country
+
 silver:
   min_order_amount: 0.0
   max_order_amount: 100000.0

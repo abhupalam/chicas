@@ -21,20 +21,42 @@ def ingest_customers(
     landing_dir: Path,
     bronze_dir: Path,
     logger: logging.Logger,
+    flatten: list[dict] | None = None,
 ) -> Path:
-    """Flatten nested JSON export and write to Bronze. Returns output path."""
+    """Flatten nested JSON export and write to Bronze. Returns output path.
+
+    ``flatten`` is a list of ``{nested: 'parent.field', target: 'field'}``
+    mappings read from pipeline.yaml.  Falls back to the legacy hardcoded
+    address fields when not supplied so existing call-sites without config
+    continue to work.
+    """
     src = landing_dir / "customers.json"
     if not src.exists():
         raise IngestionError(f"customers file not found: {src}")
 
     raw = json.loads(src.read_text())
 
-    # Flatten: each record has nested address: {city, country}
+    # Build a lookup: parent_key -> [(dot_path, target_col), ...]
+    # e.g. "address" -> [("address.city", "city"), ("address.country", "country")]
+    if flatten is None:
+        # Legacy fallback — keeps behaviour identical to the original hardcode
+        flatten = [
+            {"nested": "address.city",    "target": "city"},
+            {"nested": "address.country", "target": "country"},
+        ]
+
+    from collections import defaultdict
+    parent_map: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for entry in flatten:
+        parts = entry["nested"].split(".", 1)
+        parent_map[parts[0]].append((parts[1] if len(parts) > 1 else "", entry["target"]))
+
     rows = []
     for rec in raw:
-        address = rec.pop("address", {})
-        rec["city"] = address.get("city", "")
-        rec["country"] = address.get("country", "")
+        for parent, fields in parent_map.items():
+            nested = rec.pop(parent, {})
+            for field, target in fields:
+                rec[target] = nested.get(field, "") if field else nested
         rows.append(rec)
 
     df = pd.DataFrame(rows)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 import hashlib
 import logging
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -77,43 +78,56 @@ def build_dim_customer(
         return out_path
 
     existing = pd.read_parquet(out_path)
+    # Only compare against rows that are currently active
     current = existing[existing["_current"] == True].copy()
 
-    updated_rows, new_rows = [], []
+    # Collects rows to add this run (both brand-new customers and address changes)
+    new_rows = []
 
     for _, inc_row in incoming.iterrows():
         cid = inc_row["customer_id"]
+        # Hash only the tracked fields (city, country, email) to detect changes
         new_hash = _row_hash(inc_row, scd2_fields)
         match = current[current["customer_id"] == cid]
 
         if match.empty:
-            # Brand-new customer
+            # Brand-new customer — open a row with no end date
             r = inc_row.to_dict()
             r.update({"_eff_start": today, "_eff_end": _HIGH_DATE,
                        "_current": True, "_row_hash": new_hash})
             new_rows.append(r)
         elif match.iloc[0]["_row_hash"] != new_hash:
-            # SCD2 — expire old row, open new row
+            # Something tracked changed (e.g. customer moved city).
+            # Close the old row by setting its end date to today and marking it inactive.
+            # The old row is kept in the file — it is never deleted.
             old_idx = match.index[0]
             existing.at[old_idx, "_eff_end"] = today
             existing.at[old_idx, "_current"] = False
+            # Log the expiry so the change is visible and auditable in pipeline.jsonl
+            log_event(logger, "INFO", "dim_customer_scd2_expire",
+                      customer_id=cid,
+                      old_hash=match.iloc[0]["_row_hash"],
+                      new_hash=new_hash)
 
+            # Open a new row for the updated data
             r = inc_row.to_dict()
             r.update({"_eff_start": today, "_eff_end": _HIGH_DATE,
                        "_current": True, "_row_hash": new_hash})
             new_rows.append(r)
-        # else: unchanged — keep existing row as-is
+        # else: nothing changed — the existing row stays as-is, no action needed
 
+    # Combine the (possibly updated) existing rows with any new rows
     frames = [existing]
-    if updated_rows:
-        frames.append(pd.DataFrame(updated_rows))
     if new_rows:
         frames.append(pd.DataFrame(new_rows))
 
     result = pd.concat(frames, ignore_index=True)
     result.to_parquet(out_path, index=False)
+    # Count how many of the new_rows replaced an existing customer (vs truly new ones)
+    expired = sum(1 for r in new_rows
+                  if existing["customer_id"].isin([r["customer_id"]]).any())
     log_event(logger, "INFO", "dim_customer_written",
-              rows=len(result), new=len(new_rows))
+              rows=len(result), new=len(new_rows), expired=expired)
     return out_path
 
 

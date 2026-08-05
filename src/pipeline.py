@@ -7,6 +7,7 @@ Usage:
 from __future__ import annotations
 import argparse
 import sys
+import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -41,8 +42,25 @@ def run_one_date(date_str: str, config: Config) -> dict:
             stages.append({"stage": name, "status": "OK",
                            "duration_sec": (datetime.utcnow() - t0).total_seconds()})
         except Exception as exc:
-            stages.append({"stage": name, "status": "FAIL", "error": str(exc),
-                           "duration_sec": (datetime.utcnow() - t0).total_seconds()})
+            # Capture the full call stack, not just the one-line error message.
+            # This gives engineers the file name, line number, and exact code path
+            # when the pipeline breaks — previously only str(exc) was recorded.
+            tb = traceback.format_exc()
+            duration = (datetime.utcnow() - t0).total_seconds()
+            stages.append({
+                "stage": name,
+                "status": "FAIL",
+                "error": str(exc),
+                "traceback": tb,   # full stack trace stored in the run record
+                "duration_sec": duration,
+            })
+            # Also write immediately to pipeline.jsonl so it is on disk even if
+            # the process crashes before the run record is saved
+            log_event(logger, "ERROR", "stage_failed",
+                      stage=name,
+                      error=str(exc),
+                      traceback=tb,
+                      duration_sec=duration)
             raise
 
     status, error_msg = "SUCCESS", None

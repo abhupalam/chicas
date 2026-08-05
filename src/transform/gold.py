@@ -2,6 +2,7 @@
 from __future__ import annotations
 import hashlib
 import logging
+import os
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -138,6 +139,7 @@ def build_fact_orders(
     silver_dir: Path,
     gold_dir: Path,
     logger: logging.Logger,
+    dry_run: bool = False,
 ) -> Path:
     src = silver_dir / "orders" / f"date={date_str}" / "data.parquet"
     out_dir = gold_dir / "fact_orders" / f"date={date_str}"
@@ -155,7 +157,32 @@ def build_fact_orders(
     df["order_date"] = pd.to_datetime(df["order_date"])
     df["total_amount"] = df["quantity"] * df["unit_price"]
 
-    # Idempotent: full replace of this date partition
-    df.to_parquet(out_path, index=False)
+    # Pre-write guard: refuse to replace a valid partition with an empty frame
+    if df.empty:
+        log_event(logger, "WARNING", "fact_orders_empty_incoming",
+                  date=date_str, existing=out_path.exists())
+        return out_path
+
+    if out_path.exists():
+        existing_count = len(pd.read_parquet(out_path))
+        incoming_count = len(df)
+        if existing_count > 0 and incoming_count == 0:
+            log_event(logger, "WARNING", "fact_orders_empty_incoming_skipped",
+                      date=date_str, existing_rows=existing_count)
+            return out_path
+        log_event(logger, "INFO", "fact_orders_replacing_partition",
+                  date=date_str, existing_rows=existing_count,
+                  incoming_rows=incoming_count)
+
+    if dry_run:
+        log_event(logger, "INFO", "fact_orders_dry_run",
+                  date=date_str, rows=len(df))
+        return out_path
+
+    # Atomic write: stage then rename to avoid corrupt files on crash
+    tmp_path = out_dir / "data.parquet.tmp"
+    df.to_parquet(tmp_path, index=False)
+    os.replace(tmp_path, out_path)
+
     log_event(logger, "INFO", "fact_orders_written", date=date_str, rows=len(df))
     return out_path

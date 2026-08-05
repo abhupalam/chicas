@@ -49,7 +49,7 @@ def preflight_check(date_str: str, config: Config, logger) -> None:
     log_event(logger, "INFO", "preflight_ok", date=date_str)
 
 
-def run_one_date(date_str: str, config: Config) -> dict:
+def run_one_date(date_str: str, config: Config, dry_run: bool = False) -> dict:
     logger = get_logger("novacart", config.logs)
     state = StateManager(config.state)
     started_at = datetime.utcnow()
@@ -114,7 +114,7 @@ def run_one_date(date_str: str, config: Config) -> dict:
             config.gold_cfg.get("scd2_track_fields", ["city", "country", "email"]),
             logger))
         stage("fact_orders",   lambda: build_fact_orders(
-            date_str, config.silver, config.gold, logger))
+            date_str, config.silver, config.gold, logger, dry_run=dry_run))
 
     except Exception as exc:
         status = "FAIL"
@@ -142,7 +142,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--backfill", type=int, default=0,
                         help="Also process N days before --date")
     parser.add_argument("--config",   default="config/pipeline.yaml")
+    parser.add_argument("--dry-run",  action="store_true",
+                        help="Validate and log what would be written without writing")
     args = parser.parse_args(argv)
+
+    if args.dry_run:
+        print("[DRY-RUN] No data will be written to Gold.")
 
     config = Config.load(args.config)
     target = datetime.strptime(args.date, "%Y-%m-%d").date()
@@ -150,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
 
     failures = 0
     for d in dates:
-        result = run_one_date(d.strftime("%Y-%m-%d"), config)
+        result = run_one_date(d.strftime("%Y-%m-%d"), config, dry_run=args.dry_run)
         if result["status"] != "SUCCESS":
             failures += 1
             print(f"[FAIL] {d}: {result['error']}", file=sys.stderr)

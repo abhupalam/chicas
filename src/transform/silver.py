@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Type
 
+ROW_COUNT_DROP_THRESHOLD  = 0.10  # warn if Silver has >10% fewer rows than Bronze
+QUARANTINE_CRITICAL_THRESHOLD = 0.50  # critical if >50% of a batch is quarantined
+
 import pandas as pd
 from pydantic import BaseModel, ValidationError
 
@@ -39,15 +42,39 @@ def _validate_df(
         pd.DataFrame(bad).to_parquet(q_dir / f"{ts}.parquet", index=False)
         log_event(logger, "WARNING", f"{source_name}_quarantined", count=len(bad))
 
+        # Quarantine threshold alert — critical if majority of batch is rejected
+        batch_size = len(df)
+        quarantine_rate = len(bad) / batch_size if batch_size > 0 else 0
+        if quarantine_rate > QUARANTINE_CRITICAL_THRESHOLD:
+            log_event(logger, "CRITICAL", f"{source_name}_quarantine_critical",
+                      quarantined=len(bad), batch_size=batch_size,
+                      quarantine_pct=round(quarantine_rate * 100, 1),
+                      message="Over half the batch was rejected — report will be near-empty")
+
     result = pd.DataFrame(good) if good else pd.DataFrame(columns=df.columns)
 
-    # Deduplicate on primary key — keep last occurrence
+    # Deduplicate on primary key — keep last occurrence, log which IDs were duped
     if primary_key in result.columns and not result.empty:
         before = len(result)
+        duped_ids = (
+            result[result.duplicated(subset=[primary_key], keep="last")][primary_key]
+            .tolist()
+        )
         result = result.drop_duplicates(subset=[primary_key], keep="last")
         dupes = before - len(result)
         if dupes:
-            log_event(logger, "INFO", f"{source_name}_deduped", dropped=dupes)
+            log_event(logger, "INFO", f"{source_name}_deduped",
+                      dropped=dupes, duplicate_ids=duped_ids)
+
+    # Row-count threshold alert — warn if Silver retained <90% of Bronze rows
+    bronze_count = len(df)
+    silver_count = len(result)
+    if bronze_count > 0:
+        drop_rate = (bronze_count - silver_count) / bronze_count
+        if drop_rate > ROW_COUNT_DROP_THRESHOLD:
+            log_event(logger, "WARNING", f"{source_name}_high_drop_rate",
+                      bronze_rows=bronze_count, silver_rows=silver_count,
+                      drop_pct=round(drop_rate * 100, 1))
 
     return result.reset_index(drop=True)
 

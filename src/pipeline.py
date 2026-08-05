@@ -97,12 +97,14 @@ def run_one_date(date_str: str, config: Config) -> dict:
             config.landing_products_db, config.bronze, state, logger))
 
         # ── Silver ────────────────────────────────────────────────────────────
-        stage("silver_orders",    lambda: build_silver_orders(
-            date_str, config.bronze, config.silver, config.quarantine, logger))
+        # customers and products must run first so their Silver IDs are available
+        # for referential-integrity checks inside build_silver_orders.
         stage("silver_customers", lambda: build_silver_customers(
             config.bronze, config.silver, config.quarantine, logger))
         stage("silver_products",  lambda: build_silver_products(
             config.bronze, config.silver, config.quarantine, logger))
+        stage("silver_orders",    lambda: build_silver_orders(
+            date_str, config.bronze, config.silver, config.quarantine, logger))
 
         # ── Gold ──────────────────────────────────────────────────────────────
         stage("dim_product",   lambda: build_dim_product(

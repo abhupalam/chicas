@@ -41,3 +41,7 @@ class Config:
     def silver_cfg(self) -> dict:          return self._raw.get("silver", {})
     @property
     def gold_cfg(self) -> dict:            return self._raw.get("gold", {})
+    @property
+    def customers_flatten(self) -> list[dict]:
+        """List of {nested: 'a.b', target: 'b'} mappings for JSON flattening."""
+        return self._raw.get("customers", {}).get("flatten", [])

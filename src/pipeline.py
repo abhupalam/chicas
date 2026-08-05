@@ -29,6 +29,26 @@ from src.transform.gold import (
 )
 
 
+def preflight_check(date_str: str, config: Config, logger) -> None:
+    """Verify all source files are reachable before any stage runs.
+
+    Raises IngestionError immediately if any source is missing, preventing
+    partial Bronze writes that would leave the pipeline in an inconsistent state.
+    """
+    from src.utils.exceptions import IngestionError
+
+    checks = [
+        (config.landing_orders / f"orders_{date_str}.csv", "orders CSV"),
+        (config.landing_customers / "customers.json",       "customers JSON"),
+        (config.landing_products_db,                        "products DB"),
+    ]
+    for path, label in checks:
+        if not path.exists():
+            log_event(logger, "ERROR", "preflight_failed", source=label, path=str(path))
+            raise IngestionError(f"preflight: {label} not found: {path}")
+    log_event(logger, "INFO", "preflight_ok", date=date_str)
+
+
 def run_one_date(date_str: str, config: Config) -> dict:
     logger = get_logger("novacart", config.logs)
     state = StateManager(config.state)
@@ -65,11 +85,14 @@ def run_one_date(date_str: str, config: Config) -> dict:
 
     status, error_msg = "SUCCESS", None
     try:
+        preflight_check(date_str, config, logger)
+
         # ── Bronze ────────────────────────────────────────────────────────────
         stage("ingest_orders",    lambda: ingest_orders(
             date_str, config.landing_orders, config.bronze, logger))
         stage("ingest_customers", lambda: ingest_customers(
-            config.landing_customers, config.bronze, logger))
+            config.landing_customers, config.bronze, logger,
+            flatten=config.customers_flatten or None))
         stage("ingest_products",  lambda: ingest_products(
             config.landing_products_db, config.bronze, state, logger))
 

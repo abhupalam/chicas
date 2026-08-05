@@ -3,16 +3,16 @@ from __future__ import annotations
 import re
 from datetime import date
 from typing import Optional
-from pydantic import BaseModel, field_validator, ConfigDict
+from pydantic import BaseModel, field_validator, model_validator, ConfigDict
 
 _EMAIL_RE = re.compile(
     r"""
     ^
-    [a-zA-Z0-9._%+\-]+   # ── local part
-    @                     # ── exactly one @
-    [a-zA-Z0-9.\-]+       # ── domain (may include sub-domains)
-    \.                    # ── dot before TLD 
-    [a-zA-Z]{2,}          # ── TLD (2+ alpha chars)
+    [a-zA-Z0-9._%+\-]+
+    @
+    [a-zA-Z0-9.\-]+
+    \.
+    [a-zA-Z]{2,}
     $
     """,
     re.VERBOSE,
@@ -42,7 +42,7 @@ def _validate_email_format(value: str) -> str:
             f"invalid email – local part (before '@') is empty: {value!r}"
         )
     
-    # ── Guard 3: empty or TLD-less domain (e.g. user@ or user@domain)
+    # ── Guard 3: empty or no TLD domain (ex. user@ or user@domain)
     if not domain:
         raise ValueError(
             f"invalid email – domain (after '@') is empty: {value!r}"
@@ -52,7 +52,7 @@ def _validate_email_format(value: str) -> str:
             f"invalid email – domain has no TLD (expected 'domain.tld'): {value!r}"
         )
 
-    # ── Guard 4: full structural check via compiled regex
+    # ── Guard 4: full structural check with regex
     if not _EMAIL_RE.match(value):
         raise ValueError(
             f"invalid email – failed structural format check: {value!r}"
@@ -93,6 +93,37 @@ class OrderRow(BaseModel):
         if v.lower() not in allowed:
             raise ValueError(f"status '{v}' not in {allowed}")
         return v.lower()
+
+    @classmethod
+    def with_refs(
+        cls,
+        valid_customer_ids: set,
+        valid_product_ids: set,
+    ) -> type:
+        """Returns a subclass of OrderRow that enforces referential integrity.
+        
+        Takes known customer IDs and known product IDs and returns subclass
+        _BoundOrderRow. This subclass adds model validator, which runs after all 
+        field-level validators and raises ValueError if either ID is absent from 
+        its reference set. If either set is empty, validation is skipped. 
+        """
+        _customers = valid_customer_ids
+        _products = valid_product_ids
+
+        class _BoundOrderRow(cls):  # type: ignore[valid-type]
+            @model_validator(mode="after")
+            def check_refs(self) -> "_BoundOrderRow":
+                if _customers and self.customer_id not in _customers:
+                    raise ValueError(
+                        f"customer_id '{self.customer_id}' not found in known customers"
+                    )
+                if _products and self.product_id not in _products:
+                    raise ValueError(
+                        f"product_id '{self.product_id}' not found in known products"
+                    )
+                return self
+
+        return _BoundOrderRow
 
 
 class CustomerRow(BaseModel):

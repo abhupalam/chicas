@@ -64,8 +64,22 @@ def build_silver_orders(
         log_event(logger, "WARNING", "silver_orders_no_bronze", date=date_str)
         return silver_dir / "orders" / f"date={date_str}" / "data.parquet"
 
+    # Build reference sets from already-written Silver customers/products.
+    # If Silver files don't exist yet the sets stay empty and the check is skipped.
+    cust_path = silver_dir / "customers" / "data.parquet"
+    prod_path = silver_dir / "products" / "data.parquet"
+    valid_customers: set = (
+        set(pd.read_parquet(cust_path)["customer_id"].dropna())
+        if cust_path.exists() else set()
+    )
+    valid_products: set = (
+        set(pd.read_parquet(prod_path)["product_id"].dropna())
+        if prod_path.exists() else set()
+    )
+
+    BoundOrderRow = OrderRow.with_refs(valid_customers, valid_products)
     df = pd.read_parquet(src)
-    df = _validate_df(df, OrderRow, "order_id", quarantine_dir, logger, "orders")
+    df = _validate_df(df, BoundOrderRow, "order_id", quarantine_dir, logger, "orders")
 
     out_dir = silver_dir / "orders" / f"date={date_str}"
     out_dir.mkdir(parents=True, exist_ok=True)
